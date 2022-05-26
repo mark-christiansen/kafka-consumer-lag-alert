@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+
+    <!-- Console Appender -->
+    <appender name="stdout" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.apache.kafka" level="error" />
+    <logger name="com.jnj.kafka.admin.lagalert" level="info" />
+
+    <root level="info">
+        <appender-ref ref="stdout"/>
+    </root>
+</configuration>

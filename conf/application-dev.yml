@@ -1,0 +1,66 @@
+# admin properties
+app:
+  # seconds to wait for admin client command timeout
+  admin.client.timeout.secs: 15
+  # seconds to wait for consumer client poll timeout
+  consumer.poll.timeout.secs: 15
+  # number of concurrent consumer clients to use for processing
+  consumer.threads: 10
+  # number of hours to send alert before data loss
+  expiry.alert.offset.hours: 24
+  # default retention period configured on brokers
+  default.topic.retention.ms: 604800000
+  # comma-delimited list of consumer groups to include in the search (default is all)
+  #included.consumer.groups:
+  # comma-delimited list of consumer groups to exclude in the search (default is none)
+  #excluded.consumer.groups:
+admin:
+  client.id: consumer-lag-alert-admin
+  bootstrap.servers: localhost:9092
+  security.protocol: SASL_SSL
+  ssl.truststore.location: /Users/markchristiansen/repos/github.com/objectpartners/confluent-platform-toolkit/certs/kafka1.mycompany.com.truststore.jks
+  ssl.truststore.password: serverpassword
+  sasl.mechanism: PLAIN
+  sasl.jaas.config: >-
+    org.apache.kafka.common.security.plain.PlainLoginModule required
+    username="kafka"
+    password="kafka-secret";
+  schema.registry.url: https://localhost:8081
+  schema.registry.ssl.truststore.location: /Users/markchristiansen/repos/github.com/objectpartners/confluent-platform-toolkit/certs/kafka1.mycompany.com.truststore.jks
+  schema.registry.ssl.truststore.password: serverpassword
+  basic.auth.credentials.source: USER_INFO
+  basic.auth.user.info: kafka:kafka-secret
+# comsumer properties
+consumer:
+  #group.id: consumer-lag-alert-consumer
+  # increase for higher throughput
+  max.poll.records: 500
+  # prevent out of order messages when not using an idempotent producer
+  max.in.flight.requests.per.connection: 1
+  # higher for more throughput, 1 for less latency
+  fetch.min.bytes: 1
+  # reduce for lower latency
+  fetch.max.wait.ms: 500
+  # want just one message from each partition - this helps to avoid consuming too many messages from a partition
+  #max.partition.fetch.bytes: 10024
+  # manually commit for high durability
+  enable.auto.commit: false
+  # avoid soft failures due to network latency
+  session.timeout.ms: 30000
+  avro.use.logical.type.converters: true
+  key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  bootstrap.servers: localhost:9092
+  security.protocol: SASL_SSL
+  ssl.truststore.location: /Users/markchristiansen/repos/github.com/objectpartners/confluent-platform-toolkit/certs/kafka1.mycompany.com.truststore.jks
+  ssl.truststore.password: serverpassword
+  sasl.mechanism: PLAIN
+  sasl.jaas.config: >-
+    org.apache.kafka.common.security.plain.PlainLoginModule required
+    username="kafka"
+    password="kafka-secret";
+  schema.registry.url: https://localhost:8081
+  schema.registry.ssl.truststore.location: /Users/markchristiansen/repos/github.com/objectpartners/confluent-platform-toolkit/certs/kafka1.mycompany.com.truststore.jks
+  schema.registry.ssl.truststore.password: serverpassword
+  basic.auth.credentials.source: USER_INFO
+  basic.auth.user.info: kafka:kafka-secret

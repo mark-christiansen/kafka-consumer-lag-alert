@@ -1,0 +1,26 @@
+# admin properties
+admin:
+  client.id: consumer-lag-monitor-admin
+  bootstrap.servers: localhost:9092
+  security.protocol: PLAINTEXT
+  schema.registry.url: http://localhost:8081
+consumer:
+  #group.id: consumer-lag-monitor-consumer
+  # increase for higher throughput
+  max.poll.records: 100
+  # prevent out of order messages when not using an idempotent producer
+  max.in.flight.requests.per.connection: 1
+  # higher for more throughput, 1 for less latency
+  fetch.min.bytes: 1
+  # reduce for lower latency
+  fetch.max.wait.ms: 500
+  # manually commit for high durability
+  enable.auto.commit: false
+  # avoid soft failures due to network latency
+  session.timeout.ms: 30000
+  avro.use.logical.type.converters: true
+  key.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  value.deserializer: org.apache.kafka.common.serialization.StringDeserializer
+  bootstrap.servers: localhost:9092
+  security.protocol: PLAINTEXT
+  schema.registry.url: http://localhost:8081

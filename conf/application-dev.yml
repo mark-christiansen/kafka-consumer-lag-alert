@@ -1,9 +1,9 @@
 # admin properties
 app:
   # seconds to wait for admin client command timeout
-  admin.client.timeout.secs: 15
+  admin.client.timeout.secs: 60
   # seconds to wait for consumer client poll timeout
-  consumer.poll.timeout.secs: 15
+  consumer.poll.timeout.secs: 60
   # number of concurrent consumer clients to use for processing
   consumer.threads: 10
   # number of hours to send alert before data loss
@@ -14,6 +14,7 @@ app:
   #included.consumer.groups:
   # comma-delimited list of consumer groups to exclude in the search (default is none)
   #excluded.consumer.groups:
+  max.polls: 20
 admin:
   client.id: consumer-lag-alert-admin
   bootstrap.servers: localhost:9092

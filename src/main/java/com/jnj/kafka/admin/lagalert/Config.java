@@ -15,6 +15,8 @@ public class Config {
 
     private static final String CONSUMER_THREADS = "consumer.threads";
     private static final int CONSUMER_THREADS_DEFAULT = 10;
+    private static final String INCLUDED_CONSUMER_GROUPS = "included.consumer.groups";
+    private static final String EXCLUDED_CONSUMER_GROUPS = "excluded.consumer.groups";
 
     @Bean
     @ConfigurationProperties(prefix = "app")
@@ -46,5 +48,12 @@ public class Config {
         int threads = props.getProperty(CONSUMER_THREADS) != null ?
                 Integer.parseInt(props.getProperty(CONSUMER_THREADS)) : CONSUMER_THREADS_DEFAULT;
         return Executors.newFixedThreadPool(threads);
+    }
+
+    @Bean
+    public ConsumerGroupFilter consumerGroupFilter() {
+        Properties props = appProperties();
+        return new ConsumerGroupFilter(props.getProperty(INCLUDED_CONSUMER_GROUPS),
+                props.getProperty(EXCLUDED_CONSUMER_GROUPS));
     }
 }

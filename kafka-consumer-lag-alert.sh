@@ -28,4 +28,4 @@ done
 [[ $env == "" ]] && { echo "The option --env (-e) is required but not set, please specify the environment name"  && display_help && exit 1; }
 
 # execute program
-java -cp "$program_name-$version.jar" -Dloader.main=com.jnj.kafka.admin.lagalert.Application -Dspring.profiles.active=$env -Dspring.config.location=conf/ org.springframework.boot.loader.PropertiesLauncher
+java -cp "$program_name-$version.jar" -Dloader.main=com.jnj.kafka.admin.lagalert.Application -Dspring.profiles.active=$env -Dspring.config.location=conf/ -Dlogging.config=conf/logback.xml org.springframework.boot.loader.PropertiesLauncher

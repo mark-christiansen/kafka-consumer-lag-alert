@@ -41,7 +41,7 @@ public class ConsumerGroupFilter {
 
     private Set<String> getSet(String str) {
         Set<String> set = new HashSet<>();
-        if (str != null) {
+        if (str != null && !"".equals(str)) {
             String[] strs = str.split(",");
             set.addAll(Arrays.asList(strs));
         }

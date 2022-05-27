@@ -23,36 +23,38 @@ public class ConsumerGroupLagMonitor {
     private static final long ADMIN_CLIENT_TIMEOUT_SECS_DEFAULT = 15;
     private static final String CONSUMER_THREADS = "consumer.threads";
     private static final int CONSUMER_THREADS_DEFAULT = 10;
-    private static final String INCLUDED_CONSUMER_GROUPS = "included.consumer.groups";
-    private static final String EXCLUDED_CONSUMER_GROUPS = "excluded.consumer.groups";
 
+    private ResultsProcessor resultsProcessor;
     private final ExecutorService executorService;
     private final AdminClient adminClient;
-    private final Properties appProperties;
+    private final ConsumerGroupLagCheckerFactory checkerFactory;
     private final long adminClientTimeout;
     private final ConsumerGroupFilter consumerGroupFilter;
     private final BlockingQueue<KafkaConsumer<?, ?>> availableConsumers;
+    private final List<DataLossWarning> warnings = new ArrayList<>();
 
     @Autowired
     public ConsumerGroupLagMonitor(ExecutorService executorService,
                                    AdminClient adminClient,
+                                   ConsumerGroupFilter consumerGroupFilter,
+                                   KafkaConsumerFactory consumerFactory,
+                                   ConsumerGroupLagCheckerFactory checkerFactory,
                                    Properties appProperties,
                                    Properties consumerProperties) {
 
         this.executorService = executorService;
         this.adminClient = adminClient;
-        this.appProperties = appProperties;
+        this.checkerFactory = checkerFactory;
         this.adminClientTimeout = appProperties.getProperty(ADMIN_CLIENT_TIMEOUT_SECS) != null ?
                 Long.parseLong(appProperties.getProperty(ADMIN_CLIENT_TIMEOUT_SECS)) :
                 ADMIN_CLIENT_TIMEOUT_SECS_DEFAULT;
-        this.consumerGroupFilter = new ConsumerGroupFilter(appProperties.getProperty(INCLUDED_CONSUMER_GROUPS),
-                appProperties.getProperty(EXCLUDED_CONSUMER_GROUPS));
+        this.consumerGroupFilter = consumerGroupFilter;
 
         int consumerThreads = appProperties.getProperty(CONSUMER_THREADS) != null ?
                 Integer.parseInt(appProperties.getProperty(CONSUMER_THREADS)) : CONSUMER_THREADS_DEFAULT;
         this.availableConsumers = new ArrayBlockingQueue<>(consumerThreads);
         while(availableConsumers.size() < consumerThreads) {
-            availableConsumers.add(new KafkaConsumer<>(consumerProperties));
+            availableConsumers.add(consumerFactory.getConsumer(consumerProperties));
         }
     }
 
@@ -65,7 +67,7 @@ public class ConsumerGroupLagMonitor {
 
         List<Future<ConsumerGroupLagResult>> futureResults = new ArrayList<>();
         // start results processor in a separate thread
-        ResultsProcessor resultsProcessor = new ResultsProcessor(futureResults, availableConsumers, consumerGroups.size());
+        resultsProcessor = new ResultsProcessor(futureResults, availableConsumers, consumerGroups.size());
         new Thread(resultsProcessor).start();
 
         // for each consumer group get a consumer client and submit a consumer group lag checker process to the executor
@@ -74,8 +76,7 @@ public class ConsumerGroupLagMonitor {
         for (ConsumerGroupListing group : consumerGroups) {
             // waits until a consumer client is available
             KafkaConsumer<?, ?> consumerClient = availableConsumers.poll();
-            ConsumerGroupLagChecker consumerGroupChecker = new ConsumerGroupLagChecker(group.groupId(), adminClient,
-                    consumerClient, appProperties);
+            ConsumerGroupLagChecker consumerGroupChecker = checkerFactory.getConsumerGroupLagChecker(group.groupId(), consumerClient);
             Future<ConsumerGroupLagResult> futureResult = executorService.submit(consumerGroupChecker);
             synchronized (futureResults) {
                 futureResults.add(futureResult);
@@ -99,14 +100,20 @@ public class ConsumerGroupLagMonitor {
             // TODO: Add alerting mechanism here - email/text
             for (DataLossWarning warning : resultsProcessor.getResults()) {
                 log.warn(warning.toString());
+                warnings.add(warning);
             }
         }
+    }
+
+    public List<DataLossWarning> getWarnings() {
+        return warnings;
     }
 
     @PreDestroy
     public void destroy() {
         log.info("Shutting down consumer lag monitor");
         executorService.shutdown();
+        resultsProcessor.stop();
     }
 
     private List<ConsumerGroupListing> getConsumerGroups() throws ConsumerLagMonitorException {
@@ -155,9 +162,9 @@ public class ConsumerGroupLagMonitor {
 
             running = true;
             log.info("Started consumer lag monitor results processor");
-            while (count < expectedResults) {
+            while (count < expectedResults && running) {
 
-                log.debug("{} consumer lag monitor results received, {} remaining to collect", count, expectedResults);
+                log.debug("{} consumer lag monitor results received, {} remaining to collect", count, (expectedResults - count));
                 synchronized (futureResults) {
                     if (futureResults.isEmpty()) {
                         try {
@@ -188,7 +195,6 @@ public class ConsumerGroupLagMonitor {
                         }
                     }
                 }
-
             }
 
             log.info("Stopped consumer lag monitor results processor");
@@ -200,6 +206,10 @@ public class ConsumerGroupLagMonitor {
 
         public boolean isRunning() {
             return running;
+        }
+
+        public void stop() {
+            running = false;
         }
     }
 }

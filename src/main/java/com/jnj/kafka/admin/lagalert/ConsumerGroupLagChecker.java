@@ -33,6 +33,8 @@ public class ConsumerGroupLagChecker implements Callable<ConsumerGroupLagResult>
     private static final String EXPIRY_ALERT_OFFSET_HOURS = "expiry.alert.offset.hours";
     private static final long EXPIRY_ALERT_OFFSET_MS_DEFAULT = 24 * 3600000;
     private static final String TOPIC_RETENTION = "retention.ms";
+    private static final String MAX_POLLS = "max.polls";
+    private static final int MAX_POLLS_DEFAULT = 20;
 
     private final String groupId;
     private final AdminClient adminClient;
@@ -41,6 +43,7 @@ public class ConsumerGroupLagChecker implements Callable<ConsumerGroupLagResult>
     private final long adminClientTimeout;
     private final long consumerPollTimeout;
     private final long expiryAlertOffsetMs;
+    private final int maxPolls;
 
     public ConsumerGroupLagChecker(String groupId,
                                    AdminClient adminClient,
@@ -62,6 +65,9 @@ public class ConsumerGroupLagChecker implements Callable<ConsumerGroupLagResult>
         this.expiryAlertOffsetMs = adminProperties.get(EXPIRY_ALERT_OFFSET_HOURS) != null ?
                 Long.parseLong(adminProperties.getProperty(EXPIRY_ALERT_OFFSET_HOURS))  * 3600000 :
                 EXPIRY_ALERT_OFFSET_MS_DEFAULT;
+        this.maxPolls = adminProperties.get(MAX_POLLS) != null ?
+                Integer.parseInt(adminProperties.getProperty(MAX_POLLS)):
+                MAX_POLLS_DEFAULT;
     }
 
     @Override
@@ -150,7 +156,8 @@ public class ConsumerGroupLagChecker implements Callable<ConsumerGroupLagResult>
         // retrieve at least one record from each partition from the current offset set above
         log.debug("{}: Retrieve record at offset for each topic partition", groupId);
         Map<TopicPartition, ConsumerRecord<?, ?>> partitionRecords = new HashMap<>();
-        while(partitionRecords.size() < consumerGroupOffsets.size()) {
+        int polls = 0;
+        while(partitionRecords.size() < consumerGroupOffsets.size() && polls < maxPolls) {
             ConsumerRecords<?, ?> records = consumerClient.poll(Duration.ofSeconds(consumerPollTimeout));
             if (records.count() == 0) {
                 break;
@@ -158,6 +165,7 @@ public class ConsumerGroupLagChecker implements Callable<ConsumerGroupLagResult>
             log.debug("{}: {} records consumed from topic partitions", groupId, records.count());
             Iterator<? extends ConsumerRecord<?, ?>> iter = records.iterator();
             iter.forEachRemaining(r -> partitionRecords.putIfAbsent(new TopicPartition(r.topic(), r.partition()), r));
+            polls++;
         }
 
         // detect if the record at the consumer group's current offset has a create timestamp that is old enough to

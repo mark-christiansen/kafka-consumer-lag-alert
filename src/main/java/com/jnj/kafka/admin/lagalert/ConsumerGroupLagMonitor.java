@@ -11,9 +11,16 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
+
+import static java.lang.String.format;
 
 @Service
 public class ConsumerGroupLagMonitor {
@@ -23,12 +30,14 @@ public class ConsumerGroupLagMonitor {
     private static final long ADMIN_CLIENT_TIMEOUT_SECS_DEFAULT = 15;
     private static final String CONSUMER_THREADS = "consumer.threads";
     private static final int CONSUMER_THREADS_DEFAULT = 10;
+    private static final String WARNINGS_FILEPATH = "warnings.filepath";
 
     private ResultsProcessor resultsProcessor;
     private final ExecutorService executorService;
     private final AdminClient adminClient;
     private final ConsumerGroupLagCheckerFactory checkerFactory;
     private final long adminClientTimeout;
+    private final String warningsFilepath;
     private final ConsumerGroupFilter consumerGroupFilter;
     private final BlockingQueue<KafkaConsumer<?, ?>> availableConsumers;
     private final List<DataLossWarning> warnings = new ArrayList<>();
@@ -49,6 +58,7 @@ public class ConsumerGroupLagMonitor {
                 Long.parseLong(appProperties.getProperty(ADMIN_CLIENT_TIMEOUT_SECS)) :
                 ADMIN_CLIENT_TIMEOUT_SECS_DEFAULT;
         this.consumerGroupFilter = consumerGroupFilter;
+        this.warningsFilepath = appProperties.getProperty(WARNINGS_FILEPATH);
 
         int consumerThreads = appProperties.getProperty(CONSUMER_THREADS) != null ?
                 Integer.parseInt(appProperties.getProperty(CONSUMER_THREADS)) : CONSUMER_THREADS_DEFAULT;
@@ -97,10 +107,16 @@ public class ConsumerGroupLagMonitor {
         log.info("All consumer group lag checker processes finished");
         if (!resultsProcessor.getResults().isEmpty()) {
             log.warn("Found {} warnings", resultsProcessor.getResults().size());
-            // TODO: Add alerting mechanism here - email/text
             for (DataLossWarning warning : resultsProcessor.getResults()) {
                 log.warn(warning.toString());
                 warnings.add(warning);
+            }
+
+            // write warnings to filepath if specified in application properties
+            try {
+                writeWarningsToFile();
+            } catch (IOException e) {
+                throw new ConsumerLagMonitorException(format("Error writing warnings to file \"%s\"", warningsFilepath), e);
             }
         }
     }
@@ -134,6 +150,25 @@ public class ConsumerGroupLagMonitor {
             throw new ConsumerLagMonitorException("Error retrieving consumer groups", e);
         }
         return consumerGroups;
+    }
+
+    private void writeWarningsToFile() throws IOException {
+        if (warningsFilepath != null) {
+
+            final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss");
+            PrintWriter printWriter = null;
+            try {
+                String filename = warningsFilepath + "." + dateFormatter.format(LocalDateTime.now()) + ".log";
+                printWriter = new PrintWriter(new FileWriter(filename));
+                for (DataLossWarning warning : warnings) {
+                    printWriter.println(warning.toString());
+                }
+            } finally {
+                if (printWriter != null) {
+                    printWriter.close();
+                }
+            }
+        }
     }
 
     private static class ResultsProcessor implements Runnable {

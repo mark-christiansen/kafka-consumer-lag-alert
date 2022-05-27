@@ -7,14 +7,15 @@ app:
   # number of concurrent consumer clients to use for processing
   consumer.threads: 10
   # number of hours to send alert before data loss
-  expiry.alert.offset.hours: 24
+  expiry.alert.offset.hours: 48
   # default retention period configured on brokers
   default.topic.retention.ms: 604800000
   # comma-delimited list of consumer groups to include in the search (default is all)
-  #included.consumer.groups:
+  included.consumer.groups: retention-test
   # comma-delimited list of consumer groups to exclude in the search (default is none)
   #excluded.consumer.groups:
   max.polls: 20
+  warnings.filepath: /Users/markchristiansen/repos/github.com/mark-christiansen/kafka-consumer-lag-alert/warnings
 admin:
   client.id: consumer-lag-alert-admin
   bootstrap.servers: localhost:9092
@@ -43,7 +44,7 @@ consumer:
   # reduce for lower latency
   fetch.max.wait.ms: 500
   # want just one message from each partition - this helps to avoid consuming too many messages from a partition
-  #max.partition.fetch.bytes: 10024
+  max.partition.fetch.bytes: 10024
   # manually commit for high durability
   enable.auto.commit: false
   # avoid soft failures due to network latency

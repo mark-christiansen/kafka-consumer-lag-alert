@@ -163,6 +163,7 @@ public class ConsumerGroupLagMonitor {
                 for (DataLossWarning warning : warnings) {
                     printWriter.println(warning.toString());
                 }
+                printWriter.flush();
             } finally {
                 if (printWriter != null) {
                     printWriter.close();
